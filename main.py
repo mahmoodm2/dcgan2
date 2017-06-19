@@ -80,6 +80,7 @@ def main(_):
 
     if FLAGS.train:
       dcgan.train(FLAGS)
+      print('testing')
     else:
       if not dcgan.load(FLAGS.checkpoint_dir)[0]:
         raise Exception("[!] Train a model first, then run test mode")
@@ -93,7 +94,7 @@ def main(_):
 
     # Below is codes for visualization
     OPTION = 1
-    visualize(sess, dcgan, FLAGS, OPTION)
+    #visualize(sess, dcgan, FLAGS, OPTION)
 
 if __name__ == '__main__':
   tf.app.run()

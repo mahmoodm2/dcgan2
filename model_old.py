@@ -10,7 +10,7 @@ from six.moves import xrange
 from ops import *
 from utils import *
 import pickle
-import pandas as pd 
+import pandas as pd
 
 
 def conv_out_size_same(size, stride):
@@ -74,25 +74,31 @@ class DCGAN(object):
         self.input_fname_pattern = input_fname_pattern
         self.checkpoint_dir = checkpoint_dir
 
-        if self.dataset_name == 'mnist':
-            self.data_X, self.data_y = self.load_mnist()
-            self.c_dim = self.data_X[0].shape[-1]
-        else:
-            # MM. For our datset
+        if self.dataset_name in ["LACity", "nomoa"]:
+            self.data_X, self.data_y = self.load_dataset(self.dataset_name)
             self.c_dim = 1
 
-            # self.data = glob(os.path.join("./data", self.dataset_name, self.input_fname_pattern))
-            # imreadImg = imread(self.data[0]);
-            # if len(imreadImg.shape) >= 3: #check if image is a non-grayscale image by checking channel number
-            #   self.c_dim = imread(self.data[0]).shape[-1]
-            # else:
-            #   self.c_dim = 1
+        elif self.dataset_name == 'mnist':
+            self.data_X, self.data_y = self.load_mnist()
+            self.c_dim = self.data_X[0].shape[-1]
+
+        else:
+
+            self.data = glob(os.path.join(
+                "./data", self.dataset_name, self.input_fname_pattern))
+            imreadImg = imread(self.data[0])
+            # check if image is a non-grayscale image by checking channel number
+            if len(imreadImg.shape) >= 3:
+                self.c_dim = imread(self.data[0]).shape[-1]
+            else:
+                self.c_dim = 1
 
         self.grayscale = (self.c_dim == 1)
 
         self.build_model()
 
     def build_model(self):
+        # y_dim = number of clssification calsses
         if self.y_dim:
             self.y = tf.placeholder(
                 tf.float32, [self.batch_size, self.y_dim], name='y')
@@ -184,11 +190,14 @@ class DCGAN(object):
         if config.dataset == 'mnist':
             sample_inputs = self.data_X[0:self.sample_num]
             sample_labels = self.data_y[0:self.sample_num]
+        if config.dataset == 'mnist':
+            sample_inputs = self.data_X[0:self.sample_num]
+            sample_labels = self.data_y[0:self.sample_num]
         else:
             with open('data/LA_normal_5_5.pickle', 'rb') as handle:
                 self.df_loaded = pickle.load(handle)
 
-            print( self.df_loaded.shape)
+            print(self.df_loaded.shape)
             sample = self.df_loaded[0:self.sample_num]
             # MM Commented
             # sample_files = self.data[0:self.sample_num]
@@ -357,7 +366,7 @@ class DCGAN(object):
                             #             './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
 
                             save_data(samples, [manifold_h, manifold_w],
-                                         './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
+                                      './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
 
                             print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                                   (d_loss, g_loss))
