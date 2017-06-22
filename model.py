@@ -10,7 +10,7 @@ from six.moves import xrange
 from ops import *
 from utils import *
 import pickle
-import pandas as pd 
+import pandas as pd
 
 
 def conv_out_size_same(size, stride):
@@ -405,6 +405,11 @@ class DCGAN(object):
                 return tf.nn.sigmoid(h3), h3
 
     def generator(self, z, y=None):
+#         s_h, s_w = self.output_height, self.output_width
+# s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
+# s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
+# s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
+# s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
         with tf.variable_scope("generator") as scope:
             if not self.y_dim:
                 s_h, s_w = self.output_height, self.output_width
