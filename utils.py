@@ -34,9 +34,9 @@ def get_image(image_path, input_height, input_width,
 def save_images(images, size, image_path):
   return imsave(inverse_transform(images), size, image_path)
 
-def save_data(images, size, data_file):
+def save_data(data, data_file):
   with open(data_file, 'wb') as handle:
-    return pickle.dump(images, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    return pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
   
 
 def imread(path, grayscale = False):

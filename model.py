@@ -10,7 +10,7 @@ from six.moves import xrange
 from ops import *
 from utils import *
 import pickle
-import pandas as pd 
+import pandas as pd
 
 
 def conv_out_size_same(size, stride):
@@ -59,6 +59,7 @@ class DCGAN(object):
         # batch normalization : deals with poor initialization helps gradient flow
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
+        
 
         if not self.y_dim:
             self.d_bn3 = batch_norm(name='d_bn3')
@@ -67,6 +68,8 @@ class DCGAN(object):
         self.g_bn1 = batch_norm(name='g_bn1')
         self.g_bn2 = batch_norm(name='g_bn2')
 
+        #print("y_dim 2= " + str(self.y_dim))
+
         if not self.y_dim:
             self.g_bn3 = batch_norm(name='g_bn3')
 
@@ -74,25 +77,34 @@ class DCGAN(object):
         self.input_fname_pattern = input_fname_pattern
         self.checkpoint_dir = checkpoint_dir
 
-        if self.dataset_name == 'mnist':
-            self.data_X, self.data_y = self.load_mnist()
-            self.c_dim = self.data_X[0].shape[-1]
-        else:
-            # MM. For our datset
+        if self.dataset_name in ["LACity", "nomoa"]:
+            self.data_X, self.data_y = self.load_dataset()
             self.c_dim = 1
 
-            # self.data = glob(os.path.join("./data", self.dataset_name, self.input_fname_pattern))
-            # imreadImg = imread(self.data[0]);
-            # if len(imreadImg.shape) >= 3: #check if image is a non-grayscale image by checking channel number
-            #   self.c_dim = imread(self.data[0]).shape[-1]
-            # else:
-            #   self.c_dim = 1
+        elif self.dataset_name == 'mnist':
+            self.data_X, self.data_y = self.load_mnist()
+            self.c_dim = self.data_X[0].shape[-1]
+
+        else:
+
+            self.c_dim = 1
+
+            self.data = glob(os.path.join(
+                "./data", self.dataset_name, self.input_fname_pattern))
+            imreadImg = imread(self.data[0])
+            # check if image is a non-grayscale image by checking channel number
+            if len(imreadImg.shape) >= 3:
+                self.c_dim = imread(self.data[0]).shape[-1]
+            else:
+                self.c_dim = 1
 
         self.grayscale = (self.c_dim == 1)
+        print("c_dim 1= " + str(self.c_dim))
 
         self.build_model()
 
     def build_model(self):
+        # MM y_dim = number of calsses in a classification technique
         if self.y_dim:
             self.y = tf.placeholder(
                 tf.float32, [self.batch_size, self.y_dim], name='y')
@@ -141,8 +153,10 @@ class DCGAN(object):
 
         self.d_loss_real = tf.reduce_mean(
             sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
+
         self.d_loss_fake = tf.reduce_mean(
             sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
+
         self.g_loss = tf.reduce_mean(
             sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
@@ -161,13 +175,14 @@ class DCGAN(object):
 
         self.saver = tf.train.Saver()
 
-        self.df_loaded = pd.DataFrame()
+        #self.df_loaded = pd.DataFrame()
 
     def train(self, config):
         d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
             .minimize(self.d_loss, var_list=self.d_vars)
         g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
             .minimize(self.g_loss, var_list=self.g_vars)
+
         try:
             tf.global_variables_initializer().run()
         except:
@@ -181,25 +196,41 @@ class DCGAN(object):
 
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
 
-        if config.dataset == 'mnist':
+        # MM
+        if config.dataset in ['LACity', 'nomoa']:
+            sample = self.data_X[0:self.sample_num]
+            #sample_labels = self.data_y[0:self.sample_num]
+
+            print(config.dataset + " Sample Lables= " + str(sample.shape))
+
+
+            if (self.grayscale):
+                sample_inputs = np.array(sample).astype(
+                    np.float32)[:, :, :, None]
+            else:
+                sample_inputs = np.array(sample).astype(np.float32)
+
+
+        elif config.dataset == 'mnist':
             sample_inputs = self.data_X[0:self.sample_num]
             sample_labels = self.data_y[0:self.sample_num]
         else:
-            with open('data/LA_normal_5_5.pickle', 'rb') as handle:
-                self.df_loaded = pickle.load(handle)
+            
+            # with open('data/LA_normal_5_5.pickle', 'rb') as handle:
+            #     self.df_loaded = pickle.load(handle)
 
-            print( self.df_loaded.shape)
-            sample = self.df_loaded[0:self.sample_num]
-            # MM Commented
-            # sample_files = self.data[0:self.sample_num]
-            # sample = [
-            #     get_image(sample_file,
-            #               input_height=self.input_height,
-            #               input_width=self.input_width,
-            #               resize_height=self.output_height,
-            #               resize_width=self.output_width,
-            #               crop=self.crop,
-            #               grayscale=self.grayscale) for sample_file in sample_files]
+            # print(self.df_loaded.shape)
+            # sample = self.df_loaded[0:self.sample_num]
+
+            sample_files = self.data[0:self.sample_num]
+            sample = [
+                get_image(sample_file,
+                          input_height=self.input_height,
+                          input_width=self.input_width,
+                          resize_height=self.output_height,
+                          resize_width=self.output_width,
+                          crop=self.crop,
+                          grayscale=self.grayscale) for sample_file in sample_files]
 
             if (self.grayscale):
                 sample_inputs = np.array(sample).astype(
@@ -217,40 +248,58 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         for epoch in xrange(config.epoch):
-            if config.dataset == 'mnist':
+
+            if config.dataset in ['LACity', 'nomoa']:
+                batch_idxs = min(len(self.data_X),
+                                 config.train_size) // config.batch_size  # train_size= np.inf
+            elif config.dataset == 'mnist':
                 batch_idxs = min(len(self.data_X),
                                  config.train_size) // config.batch_size  # train_size= np.inf
             else:
-                # MM  self.data = List of image file names
-                # self.data = glob(os.path.join(
-                #     "./data", config.dataset, self.input_fname_pattern))
-                # batch_idxs = min(
-                #     len(self.data), config.train_size) // config.batch_size
 
-                # config.batch_size
+                self.data = glob(os.path.join(
+                    "./data", config.dataset, self.input_fname_pattern))
                 batch_idxs = min(
-                    len(self.df_loaded), config.train_size) // config.batch_size
+                    len(self.data), config.train_size) // config.batch_size
+
+                # # config.batch_size --> Delete
+                # batch_idxs = min(
+                #     len(self.df_loaded), config.train_size) // config.batch_size
+            print( "Bacth Idx= " + str(batch_idxs))
 
             for idx in xrange(0, batch_idxs):
-                if config.dataset == 'mnist':
+                if config.dataset in ['LACity', 'nomoa']:
+                    batch = self.data_X[idx *
+                                               config.batch_size:(idx + 1) * config.batch_size]
+                    # batch_labels = self.data_y[idx *
+                    #                            config.batch_size:(idx + 1) * config.batch_size]
+
+                    if self.grayscale:
+                        batch_images = np.array(batch).astype(
+                            np.float32)[:, :, :, None]
+                    else:
+                        batch_images = np.array(batch).astype(np.float32)
+
+                elif config.dataset == 'mnist':
                     batch_images = self.data_X[idx *
                                                config.batch_size:(idx + 1) * config.batch_size]
                     batch_labels = self.data_y[idx *
                                                config.batch_size:(idx + 1) * config.batch_size]
                 else:
-                    # batch_files = self.data[idx *
-                    #                         config.batch_size:(idx + 1) * config.batch_size]
-                    # batch = [
-                    #     get_image(batch_file,
-                    #               input_height=self.input_height,
-                    #               input_width=self.input_width,
-                    #               resize_height=self.output_height,
-                    #               resize_width=self.output_width,
-                    #               crop=self.crop,
-                    #               grayscale=self.grayscale) for batch_file in batch_files]
+                    batch_files = self.data[idx *
+                                            config.batch_size:(idx + 1) * config.batch_size]
+                    batch = [
+                        get_image(batch_file,
+                                  input_height=self.input_height,
+                                  input_width=self.input_width,
+                                  resize_height=self.output_height,
+                                  resize_width=self.output_width,
+                                  crop=self.crop,
+                                  grayscale=self.grayscale) for batch_file in batch_files]
 
-                    batch = self.df_loaded[idx *
-                                           config.batch_size:(idx + 1) * config.batch_size]
+                    # MM
+                    # batch = self.df_loaded[idx *
+                    #                        config.batch_size:(idx + 1) * config.batch_size]
                     if self.grayscale:
                         batch_images = np.array(batch).astype(
                             np.float32)[:, :, :, None]
@@ -260,7 +309,7 @@ class DCGAN(object):
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]) \
                     .astype(np.float32)
 
-                if config.dataset == 'mnist':
+                if config.dataset in ['mnist']: #, 'LACity' , 'nomoa'
                     # Update D network
                     _, summary_str = self.sess.run([d_optim, self.d_sum],
                                                    feed_dict={
@@ -322,7 +371,26 @@ class DCGAN(object):
                          time.time() - start_time, errD_fake + errD_real, errG))
 
                 if np.mod(counter, 100) == 1:
-                    if config.dataset == 'mnist':
+                    #MM
+                    if config.dataset in [ 'LACity' , 'nomoa']:
+
+                        samples, d_loss, g_loss = self.sess.run(
+                            [self.sampler, self.d_loss, self.g_loss],
+                            feed_dict={
+                                self.z: sample_z,
+                                self.inputs: sample_inputs
+                                #self.y: sample_labels,
+                            }
+                        )
+                        
+
+                        save_data(samples, 
+                                      './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
+
+                        print("[Sample] d_loss: %.8f, g_loss: %.8f" %
+                                  (d_loss, g_loss))
+
+                    elif config.dataset == 'mnist':
                         samples, d_loss, g_loss = self.sess.run(
                             [self.sampler, self.d_loss, self.g_loss],
                             feed_dict={
@@ -353,11 +421,11 @@ class DCGAN(object):
                             manifold_w = int(
                                 np.floor(np.sqrt(samples.shape[0])))
 
-                            # save_images(samples, [manifold_h, manifold_w],
-                            #             './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                            save_images(samples, [manifold_h, manifold_w],
+                                        './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
 
-                            save_data(samples, [manifold_h, manifold_w],
-                                         './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
+                            # save_data(samples, [manifold_h, manifold_w],
+                            #           './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
 
                             print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                                   (d_loss, g_loss))
@@ -447,24 +515,33 @@ class DCGAN(object):
                 s_w2, s_w4 = int(s_w / 2), int(s_w / 4)
 
                 # yb = tf.expand_dims(tf.expand_dims(y, 1),2)
-                yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
-                z = concat([z, y], 1)
+                print( "tf reshape 1= " +str(self.y_dim))
 
+                yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
+                z = concat([z, y], 1) #MM z =[ batch_size , z_dim + y_dim]
+
+                
                 h0 = tf.nn.relu(
                     self.g_bn0(linear(z, self.gfc_dim, 'g_h0_lin')))
-                h0 = concat([h0, y], 1)
+                h0 = concat([h0, y], 1) #MM h0 =[ h0.rows , ho_columns + y_dim]
 
+                
                 h1 = tf.nn.relu(self.g_bn1(
                     linear(h0, self.gf_dim * 2 * s_h4 * s_w4, 'g_h1_lin')))
                 h1 = tf.reshape(
                     h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2])
 
+               
                 h1 = conv_cond_concat(h1, yb)
+
+               
 
                 h2 = tf.nn.relu(self.g_bn2(deconv2d(h1,
                                                     [self.batch_size, s_h2, s_w2, self.gf_dim * 2], name='g_h2')))
+                
                 h2 = conv_cond_concat(h2, yb)
 
+                
                 return tf.nn.sigmoid(
                     deconv2d(h2, [self.batch_size, s_h, s_w, self.c_dim], name='g_h3'))
 
@@ -529,6 +606,36 @@ class DCGAN(object):
                 h2 = conv_cond_concat(h2, yb)
 
                 return tf.nn.sigmoid(deconv2d(h2, [self.batch_size, s_h, s_w, self.c_dim], name='g_h3'))
+
+
+    def load_dataset(self):
+
+        with open('data/X_train_' + self.dataset_name+ '.pickle', 'rb') as handle:
+                 X = pickle.load(handle)
+        with open('data/y_train_' + self.dataset_name+ '.pickle', 'rb') as handle:
+                 y = pickle.load(handle)
+
+        y = y.reshape(y.shape[0], -1).astype(np.int)
+
+        print("X1 = " + str( X.shape))
+        print("y1 = " + str( y.shape))
+        print(self.y_dim)
+
+        # with open('data/test_data_' + dataset_name+ '.pickle', 'rb') as handle:
+        #          X_test = pickle.load(handle)
+        # with open('data/test_label_' + dataset_name+ '.pickle', 'rb') as handle:
+        #          y_test = pickle.load(handle)
+
+        
+        
+        y_dim = 2
+        y_vec = np.zeros((len(y), y_dim), dtype=np.float)
+        for i, lbl in enumerate(y):
+            y_vec[i, y[i]] = 1.0
+
+        return X , y_vec
+
+
 
     def load_mnist(self):
         data_dir = os.path.join("./data", self.dataset_name)
