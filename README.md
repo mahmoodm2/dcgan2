@@ -50,7 +50,7 @@ Or, you can use your own dataset (without central crop) by:
     $ # example
     $ python main.py --dataset=eyes --input_fname_pattern="*_cropped.png" --train
 
-    $ python main.py --dataset=la_city --input_height=5 --output_height=5 --train
+    $ python main.py --dataset=LACity --input_height=16 --output_height=16 --train
 
 ## Results
 
