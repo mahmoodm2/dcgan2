@@ -183,23 +183,58 @@ def visualize(sess, dcgan, config, option):
     samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
     save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y%m%d%H%M%S", gmtime()))
   elif option == 1:
-    values = np.arange(0, 1, 1./config.batch_size)
-    for idx in xrange(100):
-      print(" [*] %d" % idx)
-      z_sample = np.zeros([config.batch_size, dcgan.z_dim])
-      for kdx, z in enumerate(z_sample):
-        z[idx] = values[kdx]
+    input_size = 15000;  
 
-      if config.dataset == "mnist":
-        y = np.random.choice(10, config.batch_size)
-        y_one_hot = np.zeros((config.batch_size, 10))
+    for idx in xrange( input_size //config.batch_size) :
+
+      print(" [*] %d" % idx)
+      z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
+
+      if config.dataset == "LACity":
+        # Please change this random.choice in a way that the ratio of 0 (poor) to 1 (rich) is the same as the distribution in the original table
+        # You don't need to use the label in the original table. Once the ratio of 0 to 1 is the same, there is no problem.
+        #y = np.random.choice(2, config.batch_size)
+        # 0s = 7164 / 15000 = 0.4776 %, 1s= 7836 / 15000 of data. Similar to oroginal labels
+        zero_labeles= 0.48
+        y = np.ones(config.batch_size)
+        y[: int(zero_labeles * config.batch_size)] = 0
+        np.random.shuffle(y)
+        y=y.astype('int')
+
+        #y = np.random.choice(2, 64 , p =[ 0.48 , 1 - 0.48] ) # Not Accurate 
+        y_one_hot = np.zeros((config.batch_size, 2))
+
         y_one_hot[np.arange(config.batch_size), y] = 1
 
         samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+
       else:
         samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
 
-      save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
+                         
+      save_data(samples,  './{}/sample_{:04d}.pickle'.format(config.sample_dir, idx))
+
+      print(" == Samples Saved = %4d " % samples.shape[0])
+       
+
+    #  for table in samples:
+    # values = np.arange(0, 1, 1./config.batch_size)
+    # for idx in xrange(100):
+    #   print(" [*] %d" % idx)
+    #   z_sample = np.zeros([config.batch_size, dcgan.z_dim])
+    #   for kdx, z in enumerate(z_sample):
+    #     z[idx] = values[kdx]
+
+    #   if config.dataset == "mnist":
+    #     y = np.random.choice(10, config.batch_size)
+    #     y_one_hot = np.zeros((config.batch_size, 10))
+    #     y_one_hot[np.arange(config.batch_size), y] = 1
+
+    #     samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+    #   else:
+    #     samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+
+    #   save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
   elif option == 2:
     values = np.arange(0, 1, 1./config.batch_size)
     for idx in [random.randint(0, 99) for _ in xrange(100)]:

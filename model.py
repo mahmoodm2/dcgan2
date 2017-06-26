@@ -294,8 +294,7 @@ class DCGAN(object):
                                   grayscale=self.grayscale) for batch_file in batch_files]
 
                     # MM
-                    # batch = self.df_loaded[idx *
-                    #                        config.batch_size:(idx + 1) * config.batch_size]
+                    
                     if self.grayscale:
                         batch_images = np.array(batch).astype(
                             np.float32)[:, :, :, None]
@@ -381,6 +380,8 @@ class DCGAN(object):
                         )                        
                         save_data(samples, 
                                       './{}/train_{:02d}_{:04d}.pickle'.format(config.sample_dir, epoch, idx))
+
+                        print(" == Samples Saved = %4d " % samples.shape[0])
 
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" %
                                   (d_loss, g_loss))
