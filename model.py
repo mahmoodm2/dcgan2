@@ -469,6 +469,7 @@ class DCGAN(object):
                 return tf.nn.sigmoid(h3), h3
 
     def generator(self, z, y=None):
+        # Add
         with tf.variable_scope("generator") as scope:
             s_h, s_w = self.output_height, self.output_width
             s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
