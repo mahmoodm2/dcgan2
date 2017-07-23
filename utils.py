@@ -13,13 +13,53 @@ from six.moves import xrange
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
 import pickle
+import xlwt
+import os
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+from scipy import stats
+
+from openpyxl import Workbook
+from openpyxl import load_workbook
+
+
 
 pp = pprint.PrettyPrinter()
 
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
+def load_tabular_data(dataset_name, classes):
+
+  with open('./data/'+ dataset_name+ '/'+ dataset_name + '_final.pickle', 'rb') as handle:
+            X = pickle.load(handle)
+  print( "Data Shape = " + str(X.shape))
+  # X should be numpy Array
+  with open('./data/'+ dataset_name+ '/'+ dataset_name + '_label.pickle', 'rb') as handle:
+            y = pickle.load(handle)
+
+
+  y = y.reshape(y.shape[0], -1).astype(np.int16)
+
+  print("X1 = " + str( X.shape))
+  print("y1 = " + str( y.shape))
+  print(classes)
+
+  # with open('data/test_data_' + dataset_name+ '.pickle', 'rb') as handle:
+  #          X_test = pickle.load(handle)
+  # with open('data/test_label_' + dataset_name+ '.pickle', 'rb') as handle:
+  #          y_test = pickle.load(handle)
+
+  
+  y_onehot = np.zeros((len(y), classes), dtype=np.float)
+  for i, lbl in enumerate(y):
+      y_onehot[i, y[i]] = 1.0
+
+  print( "y Shape = " + str(y_onehot.shape))
+
+  return X , y_onehot, y
+      
 def show_all_variables():
   model_vars = tf.trainable_variables()
   slim.model_analyzer.analyze_vars(model_vars, print_info=True)
@@ -176,46 +216,246 @@ def make_gif(images, fname, duration=2, true_image=False):
   clip = mpy.VideoClip(make_frame, duration=duration)
   clip.write_gif(fname, fps = len(images) / duration)
 
+def compare(max_col, config , real , fake , save_dir):
+
+  #gs = gridspec.GridSpec(max_col, 2)
+    
+  if os.path.isfile("./Evaluations/results.xlsx"):
+    wb = load_workbook("./Evaluations/results.xlsx") 
+  else:
+    wb = Workbook() 
+
+  sh = wb.active
+
+  xrow= sh.max_row 
+  # sh = book.add_sheet("results")
+# sh.cell
+# c =sh.cell( row= xrow , column=1) 
+# c.value= "test_id" + str(xrow)
+
+# c =sh.cell( row= xrow + 1, column=1) 
+# c.value= "test_id X " + str(xrow + 1 )
+
+# wb.save("resultMM.xlsx")
+
+  # if os.path.isfile(save_dir + "/result.xlsx"):
+  #   wb = load_workbook(save_dir + "/result.xlsx") 
+  # else:
+  #   wb = Workbook() 
+
+  # sh = wb.active
+
+  # sh = book.add_sheet("results")
+
+  sh.cell( row = 1  , column =1).value = "test_id"
+  sh.cell( row = xrow+1  , column =1).value =config.test_id
+  sh.cell( row = 1  , column =2).value = "alpha"
+  sh.cell( row = xrow+1  , column =2).value = config.alpha
+  sh.cell( row = 1  , column =3).value = "beta"
+  sh.cell( row = xrow+1  , column =3).value = config.beta
+  sh.cell( row = 1  , column =4).value = "delat_mean"
+  sh.cell( row = xrow +1 , column =4).value = config.delta_m
+  sh.cell( row = 1  , column =5).value = "delta_var"
+  sh.cell( row = xrow+1  , column =5).value = config.delta_v
+
+    # sh.write( 1 , 0, config.test_id)
+  # sh.write( 0 , 1, "alpha")
+  # sh.write( 1 , 1, config.alpha)
+  # sh.write( 0 , 2, "beta")
+  # sh.write( 1 , 2, config.beta)
+  # sh.write( 0 , 3, "delta_mean")
+  # sh.write( 1 , 3, config.delta_m)
+  # sh.write( 0 , 4, "delta_var")
+  # sh.write( 1 , 4, config.delta_v)
+  
+   
+  if not os.path.exists(save_dir+'/histo'):
+          os.makedirs(save_dir+'/histo')  
+
+  for i in range(max_col):   
+    
+      #plt.subplots_adjust(top=3.92, bottom=0.08, left=0.10, right=0.95, hspace=0.25,
+      #                wspace=0.25)
+      
+    
+      
+      plt.figure() # <- makes new figure and makes it active (remove this)
+      plt.hist( real[:,i] , bins='auto')
+      
+      plt.xlabel('Real Values. Column = ' + str(i + 1) )
+      plt.ylabel('(1,-1) range')
+      
+      plt.savefig(save_dir + "/histo/"+ str(i + 1) + "_R" ) # <- saves the currently active figure (which is empty in your code)
+
+      # ax =plt.subplot(gs[i,0] )
+      
+      # ax.set_title("Original: Col " + str( i +1))
+      # plt.hist( real[:,i] , bins='auto')
+
+      
+      # fig1 = plt.gcf()
+      
+      # fig1.savefig(save_dir + "/histo/R_"+ str(i + 1) , dpi= 200)
+      
+      
+      # ax =plt.subplot(gs[i,1] )
+    
+      plt.figure() # <- makes new figure and makes it active (remove this)
+      plt.hist( fake[:,i] , bins='auto')
+      
+      plt.xlabel('Fake Values. Column = '+ str(i + 1))
+      plt.ylabel('(1,-1) range')
+      
+      plt.savefig(save_dir + "/histo/"+ str(i + 1)+"_F" ) 
+
+      print(" Histogram of col " + str(i + 1))
+      # ax.set_title("Generated: Col " + str(i+1))
+      # plt.hist( fake[:,i] , bins='auto')
+      
+      # fig1 = plt.gcf()
+      # fig1.savefig(save_dir + "/histo/F_"+ str(i + 1 ), dpi= 200)
+      
+      
+
+      #plt.show()
+      
+      #s , p =stats.ttest_ind(real[:,cols[i]], fake[:,cols[i]])  
+      #print ( "t-test -> t-Statistic = %1.5f , P_Value =%.5f " % (s , p))
+      
+      s , p =stats.ttest_ind(real[:,i], fake[:,i] , equal_var = False)  
+
+      sh.cell( row = 1  , column =(i*3) + 6).value = "pvalue_" +str( i + 1)
+      sh.cell( row = xrow+1  , column =(i*3) + 6).value = float(p)
+
+
+      # sh.write( 0 , (i*3) + 5, "pvalue_" +str( i + 1))
+      # sh.write( 1 , (i*3)+ 5, float(p) )
+
+      mean_col = np.mean(fake[:,i])
+
+      sh.cell( row = 1  , column =(i*3) + 7).value = "mean_fake: "+str( i + 1)
+      sh.cell( row = xrow+1  , column =(i*3) + 7).value = float(mean_col)
+
+      # sh.write( 0 , (i*3) + 6, "mean_fakel: "+str( i + 1))
+      # sh.write( 1 , (i*3) + 6, float(mean_col) )
+
+      mean_col = np.mean(real[:,i])
+
+      sh.cell( row = 1  , column =(i*3) + 8).value = "mean_real: "+str( i + 1)
+      sh.cell( row = xrow+1  , column =(i*3) + 8).value = float(mean_col)
+
+      # sh.write( 0 , (i*3) + 7, "mean_real: "+str( i + 1))
+      # sh.write( 1 , (i*3) + 7, float(mean_col) )
+
+
+      #print ( "Welch -> t-Statistic = %1.5f , P_Value =%.5f " % (s , p))
+  wb.save("./Evaluations/results.xlsx")
+  print( "Results.xlsx was saved.")
+    
 def visualize(sess, dcgan, config, option):
+
   image_frame_dim = int(math.ceil(config.batch_size**.5))
+
   if option == 0:
     z_sample = np.random.uniform(-0.5, 0.5, size=(config.batch_size, dcgan.z_dim))
     samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
     save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_%s.png' % strftime("%Y%m%d%H%M%S", gmtime()))
+
   elif option == 1:
-    input_size = 15000;  
 
-    for idx in xrange( input_size //config.batch_size) :
+    if config.dataset in [ 'mnist', 'celebA' ]: 
 
-      print(" [*] %d" % idx)
-      z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
+      values = np.arange(0, 1, 1./config.batch_size)
+      for idx in xrange(100):
+        print(" [*] %d" % idx)
+        z_sample = np.zeros([config.batch_size, dcgan.z_dim])
+        for kdx, z in enumerate(z_sample):
+          z[idx] = values[kdx]
 
-      if config.dataset == "LACity":
-        # Please change this random.choice in a way that the ratio of 0 (poor) to 1 (rich) is the same as the distribution in the original table
-        # You don't need to use the label in the original table. Once the ratio of 0 to 1 is the same, there is no problem.
-        #y = np.random.choice(2, config.batch_size)
-        # 0s = 7164 / 15000 = 0.4776 %, 1s= 7836 / 15000 of data. Similar to oroginal labels
-        zero_labeles= 0.48
-        y = np.ones(config.batch_size)
-        y[: int(zero_labeles * config.batch_size)] = 0
-        np.random.shuffle(y)
-        y=y.astype('int')
+        if config.dataset == "mnist":
+          y = np.random.choice(10, config.batch_size)
+          y_one_hot = np.zeros((config.batch_size, 10))
+          y_one_hot[np.arange(config.batch_size), y] = 1
 
-        #y = np.random.choice(2, 64 , p =[ 0.48 , 1 - 0.48] ) # Not Accurate 
-        y_one_hot = np.zeros((config.batch_size, 2))
+          samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+        else:
+          samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
 
-        y_one_hot[np.arange(config.batch_size), y] = 1
+        save_images(samples, [image_frame_dim, image_frame_dim], './samples/test_arange_%s.png' % (idx))
 
-        samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot})
+      
+    else:
+      input_size = 15000;  
+      dim= config.output_width #16
 
-      else:
-        samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+      merged_data =np.ndarray([config.batch_size * (input_size // config.batch_size) , dim ,dim], dtype=float) # 64 * 234, 16 , 16
+      
+      save_dir = './{}'.format(config.sample_dir + "/" +config.test_id)
 
-                         
-      save_data(samples,  './{}/sample_{:04d}.pickle'.format(config.sample_dir, idx))
+      if not os.path.exists(save_dir):
+            os.makedirs(save_dir)  
 
-      print(" == Samples Saved = %4d " % samples.shape[0])
+      samples_dir = save_dir + '/samples'
+      if not os.path.exists(samples_dir):
+            os.makedirs(samples_dir)  
+
+      for idx in xrange( input_size //config.batch_size) :
+
+        print(" [*] %d" % idx)
+        z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
+
+        if config.dataset == "LACity":
+          # Please change this random.choice in a way that the ratio of 0 (poor) to 1 (rich) is the same as the distribution in the original table
+          # You don't need to use the label in the original table. Once the ratio of 0 to 1 is the same, there is no problem.
+          #y = np.random.choice(2, config.batch_size)
+          # 0s = 7164 / 15000 = 0.4776 %, 1s= 7836 / 15000 of data. Similar to oroginal labels
+          zero_labeles= 0.48
+          y = np.ones((config.batch_size,1))
+          
+          y[: int(zero_labeles * config.batch_size)] = 0
+          np.random.shuffle(y)
+
+          print( "y shape " + str( y.shape))
+          y=y.astype('int16')
+
+          #y = np.random.choice(2, 64 , p =[ 0.48 , 1 - 0.48] ) # Not Accurate 
+          y_one_hot = np.zeros((config.batch_size, dcgan.y_dim))
+
+          y_one_hot[np.arange(config.batch_size), y] = 1
+
+          samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample, dcgan.y: y_one_hot , dcgan.y_normal : y })
+
+        else:
+          samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
+        
+
+        save_data(samples,  samples_dir + '/sample_{:04d}.pickle'.format(idx))
+
+        # Merging Data 
+        merged_data[idx * config.batch_size : (idx+1) * config.batch_size] = samples.reshape(samples.shape[0],samples.shape[1],samples.shape[2]) # 64 ,16,16
+
+        print(" == Samples Saved = %4d " % samples.shape[0])
        
+      # merged_data is ready in merged_data , now reshape it to a tabular data
+      print( "Merged Data Shape = " + str(merged_data.shape))
+      tabular_fake_data = merged_data.reshape( merged_data.shape[0] , merged_data.shape[1] * merged_data.shape[2]) # [64 , 16*16=256]
+
+      print( " Fake Data Shape= " + str(tabular_fake_data.shape))
+
+      with open(save_dir +'/fake_tabular.pickle', 'wb') as handle:
+        pickle.dump(tabular_fake_data , handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+      real_X, real_y , real_y_normal = load_tabular_data(config.dataset , dcgan.y_dim)
+
+      tabular_real_data = real_X.reshape( real_X.shape[0] , real_X.shape[1] * real_X.shape[2]) # [64 , 16*16=256]
+
+      with open(save_dir +'/real_tabular.pickle', 'wb') as handle:       
+        pickle.dump(tabular_real_data , handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+      
+      print( "Real Data Shape = " + str(real_X.shape))
+
+      compare(config.maxcol , config , tabular_real_data , tabular_fake_data , save_dir)
 
     #  for table in samples:
     # values = np.arange(0, 1, 1./config.batch_size)
